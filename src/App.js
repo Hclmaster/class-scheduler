@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import './App.css';
+import "rbx/index.css";
 import {Button, Container, Title} from 'rbx';
 
 
@@ -30,8 +31,10 @@ const buttonColor = selected => (
 const TermSelector = ({term}) => (
     <Button.Group hasAddons>
         {Object.values(terms)
-            .map(value => <Button key={value}
-                                  color={buttonColor(value === term)}>{value}</Button>)}
+            .map(value =>
+                <Button key={value} color={buttonColor(value === term)}>
+                    {value}
+                </Button>)}
     </Button.Group>
 );
 
