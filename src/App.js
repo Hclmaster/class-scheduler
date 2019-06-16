@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import './App.css';
-import { Button, Container, Title} from 'rbx';
+import {Button, Container, Title} from 'rbx';
 
 
 const Banner = ({title}) => (
@@ -23,11 +23,30 @@ const Course = ({course}) => (
     </Button>
 );
 
-const CourseList = ({courses}) => (
-    <Button.Group>
-        {courses.map(course => <Course key={course.id} course={course}/>)}
+const buttonColor = selected => (
+    selected ? 'success' : null
+);
+
+const TermSelector = ({term}) => (
+    <Button.Group hasAddons>
+        {Object.values(terms)
+            .map(value => <Button key={value}
+                                  color={buttonColor(value === term)}>{value}</Button>)}
     </Button.Group>
 );
+
+const CourseList = ({courses}) => {
+    const [term, setTerm] = useState('Fall');
+    const termCourses = courses.filter(course => (term === getCourseTerm(course)));
+    return (
+        <React.Fragment>
+            <TermSelector term={term}/>
+            <Button.Group>
+                {termCourses.map(course => <Course key={course.id} course={course}/>)}
+            </Button.Group>
+        </React.Fragment>
+    );
+};
 
 const App = () => {
     // useState: returns two values (initial value; function used to update state)
@@ -36,14 +55,14 @@ const App = () => {
     useEffect(() => {
         const fetchSchedule = async () => {
             const response = await fetch(url);
-            if(!response.ok) throw response;
+            if (!response.ok) throw response;
             const json = await response.json();
             setSchedule(json);
         };
         fetchSchedule();
     }, []);
 
-    return(
+    return (
         <Container>
             <Banner title={schedule.title}/>
             <CourseList courses={schedule.courses}/>
