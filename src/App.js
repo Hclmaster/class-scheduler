@@ -28,11 +28,13 @@ const buttonColor = selected => (
     selected ? 'success' : null
 );
 
-const TermSelector = ({term}) => (
+const TermSelector = ({state}) => (
     <Button.Group hasAddons>
         {Object.values(terms)
             .map(value =>
-                <Button key={value} color={buttonColor(value === term)}>
+                <Button key={value}
+                        color={buttonColor(value === state.term)}
+                        onClick={() => state.setTerm(value)}>
                     {value}
                 </Button>)}
     </Button.Group>
@@ -43,9 +45,10 @@ const CourseList = ({courses}) => {
     const termCourses = courses.filter(course => (term === getCourseTerm(course)));
     return (
         <React.Fragment>
-            <TermSelector term={term}/>
+            <TermSelector state={{term, setTerm}}/>
             <Button.Group>
-                {termCourses.map(course => <Course key={course.id} course={course}/>)}
+                {termCourses.map(course => <Course key={course.id} course={course}
+                                            state={{term, setTerm}}/>)}
             </Button.Group>
         </React.Fragment>
     );
