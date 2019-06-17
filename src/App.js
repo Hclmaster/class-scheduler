@@ -10,6 +10,53 @@ const Banner = ({title}) => (
 
 const terms = {F: 'Fall', W: 'Winter', S: 'Spring'};
 
+const days = ['M', 'Tu', 'W', 'Th', 'F'];
+
+const daysOverlap = (days1, days2) => (
+    days.some(day => days1.includes(day) && days2.includes(day))
+);
+
+const hoursOverlap = (hours1, hours2) => (
+    Math.max(hours1.start, hours2.start) < Math.min(hours1.end, hours2.end)
+);
+
+const timeConflict = (course1, course2) => (
+    daysOverlap(course1.days, course2.days) && hoursOverlap(course1.hours, course2.hours)
+);
+
+const courseConflict = (course1, course2) => (
+    course1 !== course2
+    && getCourseTerm(course1) === getCourseTerm(course2)
+    && timeConflict(course1, course2)
+);
+
+const hasConflict = (course, selected) => (
+    selected.some(selection => courseConflict(course, selection))
+);
+
+const meetsPat = /^ *((?:M|Tu|W|Th|F)+) +(\d\d?):(\d\d) *[ -] *(\d\d?):(\d\d) *$/;
+
+const timeParts = meets => {
+    const [match, days, hh1, mm1, hh2, mm2] = meetsPat.exec(meets) || [];
+    return !match ? {} : {
+        days,
+        hours: {
+            start: hh1 * 60 + mm1 * 1,
+            end: hh2 * 60 + mm2 * 1
+        }
+    };
+};
+
+const addCourseTimes = course => ({
+    ...course,
+    ...timeParts(course.meets)
+});
+
+const addScheduleTimes = schedule => ({
+    title: schedule.title,
+    courses: schedule.courses.map(addCourseTimes)
+});
+
 const getCourseTerm = course => (
     terms[course.id.charAt(0)]
 );
@@ -18,8 +65,10 @@ const getCourseNumber = course => (
     course.id.slice(1, 4)
 );
 
-const Course = ({course}) => (
-    <Button>
+const Course = ({course, state}) => (
+    <Button color={buttonColor(state.selected.includes(course))}
+            onClick={() => state.toggle(course)}
+            disabled={hasConflict(course, state.selected)}>
         {getCourseTerm(course)} CS {getCourseNumber(course)} : {course.title}
     </Button>
 );
@@ -40,22 +89,33 @@ const TermSelector = ({state}) => (
     </Button.Group>
 );
 
+const useSelection = () => {
+    const [selected, setSelected] = useState([]);
+    // toggle implements function as a variable, if selected, then unselected it;
+    // if this one is unselected, then make it to be selected!
+    const toggle = (x) => {
+        setSelected(selected.includes(x) ? selected.filter(y => y !== x) : [x].concat(selected))
+    };
+    return [selected, toggle];
+};
+
 const CourseList = ({courses}) => {
     const [term, setTerm] = useState('Fall');
     const termCourses = courses.filter(course => (term === getCourseTerm(course)));
+    const [selected, toggle] = useSelection();
+
     return (
         <React.Fragment>
             <TermSelector state={{term, setTerm}}/>
             <Button.Group>
                 {termCourses.map(course => <Course key={course.id} course={course}
-                                            state={{term, setTerm}}/>)}
+                                            state={{selected, toggle}}/>)}
             </Button.Group>
         </React.Fragment>
     );
 };
 
 const App = () => {
-    // useState: returns two values (initial value; function used to update state)
     const [schedule, setSchedule] = useState({title: '', courses: []});
     const url = 'https://www.cs.northwestern.edu/academics/courses/394/data/cs-courses.php';
     useEffect(() => {
@@ -63,7 +123,7 @@ const App = () => {
             const response = await fetch(url);
             if (!response.ok) throw response;
             const json = await response.json();
-            setSchedule(json);
+            setSchedule(addScheduleTimes(json));
         };
         fetchSchedule();
     }, []);
