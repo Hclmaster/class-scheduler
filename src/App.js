@@ -5,21 +5,20 @@ import {Button, Container, Title} from 'rbx';
 import firebase from 'firebase/app';
 import 'firebase/database';
 
+const terms = {F: 'Fall', W: 'Winter', S: 'Spring'};
+
+const days = ['M', 'Tu', 'W', 'Th', 'F'];
 
 const Banner = ({title}) => (
     <Title>{title || '[Loading...]'}</Title>
 );
 
-const terms = {F: 'Fall', W: 'Winter', S: 'Spring'};
-
-const days = ['M', 'Tu', 'W', 'Th', 'F'];
-
 const daysOverlap = (days1, days2) => (
     days.some(day => days1.includes(day) && days2.includes(day))
 );
 
-const hoursOverlap = (hours1, hours2) => (
-    Math.max(hours1.start, hours2.start) < Math.min(hours1.end, hours2.end)
+const hoursOverlap = (hour1, hour2) => (
+    Math.max(hour1.start, hour2.start) < Math.min(hour1.end, hour2.end)
 );
 
 const timeConflict = (course1, course2) => (
@@ -36,23 +35,34 @@ const hasConflict = (course, selected) => (
     selected.some(selection => courseConflict(course, selection))
 );
 
-const meetsPat = /^(\d\d?):(\d\d)$/;
+const meetsPat = /^ *((?:M|Tu|W|Th|F)+) +(\d\d?:\d\d) *[ -] *(\d\d?:\d\d) *$/;
 
-const timeParts = course => {
-    const [matchStart, hh1, mm1] = meetsPat.exec(course.start) || [];
-    const [matchsEnd, hh2, mm2] = meetsPat.exec(course.end) || [];
+const timeParts = meets => {
+    const [match, days, start, end] = meetsPat.exec(meets) || [];
 
+    return !match ? {} : {
+        days,
+        start: start,
+        end: end
+    };
+};
+
+const timePat = /^(\d\d?):(\d\d)$/;
+
+const formatTime = course => {
+    const[matchStart, hh1, mm1] = timePat.exec(course.start) || [];
+    const[matchEnd, hh2, mm2] = timePat.exec(course.end) || [];
     return {
         hours: {
             start: hh1 * 60 + mm1 * 1,
             end: hh2 * 60 + mm2 * 1
         }
-    };
+    }
 };
 
 const addCourseTimes = course => ({
     ...course,
-    ...timeParts(course)
+    ...formatTime(course)
 });
 
 const addScheduleTimes = schedule => ({
@@ -71,10 +81,24 @@ const getCourseNumber = course => (
 const Course = ({course, state}) => (
     <Button color={buttonColor(state.selected.includes(course))}
             onClick={() => state.toggle(course)}
+            onDoubleClick={() => moveCourse(course)}
             disabled={hasConflict(course, state.selected)}>
         {getCourseTerm(course)} CS {getCourseNumber(course)} : {course.title}
     </Button>
 );
+
+const saveCourse = (course, meets) => {
+    db.child('courses').child(course.id).update(meets)
+        .catch(error => alert(error));
+};
+
+const moveCourse = course => {
+    const meets = prompt('Enter new meeting data, in this format:', course.days+' '+course.start+'-'+course.end);
+    if(!meets) return;
+    const result = timeParts(meets);
+    if(result.days) saveCourse(course, result);
+    else moveCourse(course);
+};
 
 const buttonColor = selected => (
     selected ? 'success' : null
