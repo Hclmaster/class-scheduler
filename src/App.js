@@ -13,7 +13,7 @@ const days = ['M', 'Tu', 'W', 'Th', 'F'];
 
 const Banner = ({user, title}) => (
     <React.Fragment>
-        {user ? <Welcome user={user} /> : <SignIn />}
+        {user ? <Welcome user={user}/> : <SignIn/>}
         <Title>{title || '[Loading...]'}</Title>
     </React.Fragment>
 );
@@ -59,34 +59,23 @@ const hasConflict = (course, selected) => (
     selected.some(selection => courseConflict(course, selection))
 );
 
-const meetsPat = /^ *((?:M|Tu|W|Th|F)+) +(\d\d?:\d\d) *[ -] *(\d\d?:\d\d) *$/;
+const meetsPat = /^ *((?:M|Tu|W|Th|F)+) +(\d\d?):(\d\d) *[ -] *(\d\d?):(\d\d) *$/;
 
 const timeParts = meets => {
-    const [match, days, start, end] = meetsPat.exec(meets) || [];
+    const [match, days, hh1, mm1, hh2, mm2] = meetsPat.exec(meets) || [];
 
     return !match ? {} : {
         days,
-        start: start,
-        end: end
-    };
-};
-
-const timePat = /^(\d\d?):(\d\d)$/;
-
-const formatTime = course => {
-    const[matchStart, hh1, mm1] = timePat.exec(course.start) || [];
-    const[matchEnd, hh2, mm2] = timePat.exec(course.end) || [];
-    return {
         hours: {
-            start: hh1 * 60 + mm1 * 1,
-            end: hh2 * 60 + mm2 * 1
+            start: hh1 * 60 + mm1,
+            end: hh2 * 60 + mm2
         }
-    }
+    };
 };
 
 const addCourseTimes = course => ({
     ...course,
-    ...formatTime(course)
+    ...timeParts(course.meets)
 });
 
 const addScheduleTimes = schedule => ({
@@ -112,15 +101,13 @@ const Course = ({course, state, user}) => (
 );
 
 const saveCourse = (course, meets) => {
-    db.child('courses').child(course.id).update(meets)
-        .catch(error => alert(error));
+    db.child('courses').child(course.id).update({meets}).catch(error => alert(error));
 };
 
 const moveCourse = course => {
-    const meets = prompt('Enter new meeting data, in this format:', course.days+' '+course.start+'-'+course.end);
-    if(!meets) return;
-    const result = timeParts(meets);
-    if(result.days) saveCourse(course, result);
+    const meets = prompt('Enter new meeting data, in this format:', course.meets);
+    if (!meets) return;
+    if (timeParts(meets).days) saveCourse(course, meets);
     else moveCourse(course);
 };
 
@@ -160,8 +147,8 @@ const CourseList = ({courses, user}) => {
             <TermSelector state={{term, setTerm}}/>
             <Button.Group>
                 {termCourses.map(course => <Course key={course.id} course={course}
-                                            state={{selected, toggle}}
-                                            user={user}/>)}
+                                                   state={{selected, toggle}}
+                                                   user={user}/>)}
             </Button.Group>
         </React.Fragment>
     );
@@ -196,10 +183,12 @@ const App = () => {
 
     useEffect(() => {
         const handleData = snap => {
-            if(snap.val()) setSchedule(addScheduleTimes(snap.val()));
+            if (snap.val()) setSchedule(addScheduleTimes(snap.val()));
         };
         db.on('value', handleData, error => alert(error));
-        return () => {db.off('value', handleData);};
+        return () => {
+            db.off('value', handleData);
+        };
     }, []);
 
     useEffect(() => {
