@@ -6,10 +6,9 @@ import firebase from 'firebase/app';
 import 'firebase/database';
 import 'firebase/auth'
 import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
+import CourseList from './components/CourseList'
 
-const terms = {F: 'Fall', W: 'Winter', S: 'Spring'};
-
-const days = ['M', 'Tu', 'W', 'Th', 'F'];
+const meetsPat = /^ *((?:M|Tu|W|Th|F)+) +(\d\d?):(\d\d) *[ -] *(\d\d?):(\d\d) *$/;
 
 const Banner = ({user, title}) => (
     <React.Fragment>
@@ -37,30 +36,6 @@ const SignIn = () => (
     />
 );
 
-const daysOverlap = (days1, days2) => (
-    days.some(day => days1.includes(day) && days2.includes(day))
-);
-
-const hoursOverlap = (hour1, hour2) => (
-    Math.max(hour1.start, hour2.start) < Math.min(hour1.end, hour2.end)
-);
-
-const timeConflict = (course1, course2) => (
-    daysOverlap(course1.days, course2.days) && hoursOverlap(course1.hours, course2.hours)
-);
-
-const courseConflict = (course1, course2) => (
-    course1 !== course2
-    && getCourseTerm(course1) === getCourseTerm(course2)
-    && timeConflict(course1, course2)
-);
-
-const hasConflict = (course, selected) => (
-    selected.some(selection => courseConflict(course, selection))
-);
-
-const meetsPat = /^ *((?:M|Tu|W|Th|F)+) +(\d\d?):(\d\d) *[ -] *(\d\d?):(\d\d) *$/;
-
 const timeParts = meets => {
     const [match, days, hh1, mm1, hh2, mm2] = meetsPat.exec(meets) || [];
 
@@ -82,77 +57,6 @@ const addScheduleTimes = schedule => ({
     title: schedule.title,
     courses: Object.values(schedule.courses).map(addCourseTimes)
 });
-
-const getCourseTerm = course => (
-    terms[course.id.charAt(0)]
-);
-
-const getCourseNumber = course => (
-    course.id.slice(1, 4)
-);
-
-const Course = ({course, state, user}) => (
-    <Button color={buttonColor(state.selected.includes(course))}
-            onClick={() => state.toggle(course)}
-            onDoubleClick={user ? () => moveCourse(course) : null}
-            disabled={hasConflict(course, state.selected)}>
-        {getCourseTerm(course)} CS {getCourseNumber(course)} : {course.title}
-    </Button>
-);
-
-const saveCourse = (course, meets) => {
-    db.child('courses').child(course.id).update({meets}).catch(error => alert(error));
-};
-
-const moveCourse = course => {
-    const meets = prompt('Enter new meeting data, in this format:', course.meets);
-    if (!meets) return;
-    if (timeParts(meets).days) saveCourse(course, meets);
-    else moveCourse(course);
-};
-
-const buttonColor = selected => (
-    selected ? 'success' : null
-);
-
-const TermSelector = ({state}) => (
-    <Button.Group hasAddons>
-        {Object.values(terms)
-            .map(value =>
-                <Button key={value}
-                        color={buttonColor(value === state.term)}
-                        onClick={() => state.setTerm(value)}>
-                    {value}
-                </Button>)}
-    </Button.Group>
-);
-
-const useSelection = () => {
-    const [selected, setSelected] = useState([]);
-    // toggle implements function as a variable, if selected, then unselected it;
-    // if this one is unselected, then make it to be selected!
-    const toggle = (x) => {
-        setSelected(selected.includes(x) ? selected.filter(y => y !== x) : [x].concat(selected))
-    };
-    return [selected, toggle];
-};
-
-const CourseList = ({courses, user}) => {
-    const [term, setTerm] = useState('Fall');
-    const termCourses = courses.filter(course => (term === getCourseTerm(course)));
-    const [selected, toggle] = useSelection();
-
-    return (
-        <React.Fragment>
-            <TermSelector state={{term, setTerm}}/>
-            <Button.Group>
-                {termCourses.map(course => <Course key={course.id} course={course}
-                                                   state={{selected, toggle}}
-                                                   user={user}/>)}
-            </Button.Group>
-        </React.Fragment>
-    );
-};
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2fXuLpL0-VdZzU6_3_WLWXYb9i5sLezw",
@@ -198,7 +102,7 @@ const App = () => {
     return (
         <Container>
             <Banner title={schedule.title} user={user}/>
-            <CourseList courses={schedule.courses} user={user}/>
+            <CourseList courses={schedule.courses} user={user} db={db}/>
         </Container>
     );
 };
