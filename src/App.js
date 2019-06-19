@@ -1,17 +1,41 @@
 import React, {useState, useEffect} from 'react';
 import './App.css';
 import "rbx/index.css";
-import {Button, Container, Title} from 'rbx';
+import {Button, Container, Title, Message} from 'rbx';
 import firebase from 'firebase/app';
 import 'firebase/database';
+import 'firebase/auth'
+import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
 
 const terms = {F: 'Fall', W: 'Winter', S: 'Spring'};
 
 const days = ['M', 'Tu', 'W', 'Th', 'F'];
 
-const Banner = ({title}) => (
-    <Title>{title || '[Loading...]'}</Title>
+const Banner = ({user, title}) => (
+    <React.Fragment>
+        {user ? <Welcome user={user} /> : <SignIn />}
+        <Title>{title || '[Loading...]'}</Title>
+    </React.Fragment>
 );
+
+const Welcome = ({user}) => (
+    <Message color="info">
+        <Message.Header>
+            Welcome, {user.displayName}
+            <Button color={'primary'}
+                    onClick={() => firebase.auth().signOut()}>
+                Log Out
+            </Button>
+        </Message.Header>
+    </Message>
+);
+
+const SignIn = () => (
+    <StyledFirebaseAuth
+        uiConfig={uiConfig}
+        firebaseAuth={firebase.auth()}
+    />
+)
 
 const daysOverlap = (days1, days2) => (
     days.some(day => days1.includes(day) && days2.includes(day))
@@ -155,8 +179,19 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database().ref();
 
+const uiConfig = {
+    signInFlow: 'popup',
+    signInOptions: [
+        firebase.auth.GoogleAuthProvider.PROVIDER_ID
+    ],
+    callbacks: {
+        signInSuccessWithAuthResult: () => false
+    }
+};
+
 const App = () => {
     const [schedule, setSchedule] = useState({title: '', courses: []});
+    const [user, setUser] = useState(null);
 
     useEffect(() => {
         const handleData = snap => {
@@ -166,10 +201,14 @@ const App = () => {
         return () => {db.off('value', handleData);};
     }, []);
 
+    useEffect(() => {
+        firebase.auth().onAuthStateChanged(setUser);
+    }, []);
+
     return (
         <Container>
-            <Banner title={schedule.title}/>
-            <CourseList courses={schedule.courses}/>
+            <Banner title={schedule.title} user={user}/>
+            <CourseList courses={schedule.courses} user={user}/>
         </Container>
     );
 };
