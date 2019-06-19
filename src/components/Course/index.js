@@ -1,1 +1,1 @@
-import Course from './Course';
+export * from './Course'
